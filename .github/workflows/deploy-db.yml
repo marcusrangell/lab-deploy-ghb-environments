@@ -1,0 +1,53 @@
+name: deploy-db
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  #push:
+  #  branches: [ "main" ]
+  #pull_request:
+  #  branches: [ "main" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RESOURCEGROUP_NAME: dev-db-deploytest-rg
+  ENVIRONMENT: dev
+  DEFAULT_LOCATION: swedencentral
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create resource group
+        uses: Azure/cli@v2
+        with:
+          inlineScript: >
+            az group create
+            --name ${{ env.RESOURCEGROUP_NAME }}
+            --location ${{ env.DEFAULT_LOCATION }}
+      
+      - name: Deploy bicep
+        uses: azure/arm-deploy@v2
+        with:
+          deploymentName: ${{ github.workflow }}-${{ github.run_number }}
+          resourceGroupName: ${{ env.RESOURCEGROUP_NAME }}
+          template: ./infra/main.bicep
+          parameters: ./infra/main.dev.bicepparam
